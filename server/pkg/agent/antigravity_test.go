@@ -93,7 +93,7 @@ func TestBuildAntigravityArgsNoTimeoutOmitsPrintTimeout(t *testing.T) {
 		"--add-dir", "/work",
 	}
 	if !slices.Equal(args, want) {
-		t.Fatalf("buildAntigravityArgs(timeout=0) mismatch\n got: %v\nwant: %v", args)
+		t.Fatalf("buildAntigravityArgs(timeout=0) mismatch\n got: %v\nwant: %v", args, want)
 	}
 	if slices.Contains(args, "--print-timeout") {
 		t.Fatalf("--print-timeout must be omitted when timeout <= 0; got %v", args)
