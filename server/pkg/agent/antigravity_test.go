@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"os"
@@ -212,6 +213,46 @@ func TestReadAntigravityConversationIDMissingFile(t *testing.T) {
 	}
 	if got := readAntigravityConversationID(""); got != "" {
 		t.Errorf("expected empty string for empty path, got %q", got)
+	}
+}
+
+func TestAntigravityExecuteTreatsAuthPromptAsFailure(t *testing.T) {
+	t.Parallel()
+
+	fake := filepath.Join(t.TempDir(), "agy")
+	script := `#!/bin/sh
+cat <<'OUT'
+Authentication required. Please visit the URL to log in:
+  https://accounts.google.com/o/oauth2/auth?example=1
+
+Waiting for authentication (timeout 30s)...
+Or, paste the authorization code here and press Enter:
+Error: authentication timed out.
+OUT
+exit 0
+`
+	if err := os.WriteFile(fake, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	backend := &antigravityBackend{cfg: Config{
+		ExecutablePath: fake,
+		Logger:         quietAntigravityLogger(),
+	}}
+	session, err := backend.Execute(context.Background(), "hello", ExecOptions{Timeout: time.Minute})
+	if err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+
+	result := <-session.Result
+	if result.Status != "failed" {
+		t.Fatalf("result status = %q, want failed; output=%q", result.Status, result.Output)
+	}
+	if !strings.Contains(result.Error, "not logged in") {
+		t.Fatalf("result error = %q, want not logged in classifier hint", result.Error)
+	}
+	if result.SessionID != "" {
+		t.Fatalf("session id = %q, want empty for auth prompt before dispatch", result.SessionID)
 	}
 }
 
