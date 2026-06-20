@@ -149,6 +149,9 @@ func (b *antigravityBackend) Execute(ctx context.Context, prompt string, opts Ex
 		} else if authErr := antigravityAuthPromptError(output.String()); authErr != "" {
 			finalStatus = "failed"
 			finalError = authErr
+		} else if emptyErr := antigravityEmptyOutputError(output.String()); emptyErr != "" {
+			finalStatus = "failed"
+			finalError = emptyErr
 		}
 		if finalError != "" {
 			finalError = withAgentStderr(finalError, "agy", stderrBuf.Tail())
@@ -179,6 +182,13 @@ func antigravityAuthPromptError(output string) string {
 		strings.Contains(lower, "authentication timed out") ||
 		strings.Contains(lower, "please sign in") {
 		return "not logged in: agy authentication required; run `agy` in a terminal and complete sign-in before using this Multica runtime"
+	}
+	return ""
+}
+
+func antigravityEmptyOutputError(output string) string {
+	if strings.TrimSpace(output) == "" {
+		return "not logged in or agy returned no assistant output; run `agy models` to verify Antigravity CLI authentication and model access"
 	}
 	return ""
 }
