@@ -93,7 +93,7 @@ func TestBuildAntigravityArgsNoTimeoutOmitsPrintTimeout(t *testing.T) {
 		"--add-dir", "/work",
 	}
 	if !slices.Equal(args, want) {
-		t.Fatalf("buildAntigravityArgs(timeout=0) mismatch\n got: %v\nwant: %v", args, want)
+		t.Fatalf("buildAntigravityArgs(timeout=0) mismatch\n got: %v\nwant: %v", args)
 	}
 	if slices.Contains(args, "--print-timeout") {
 		t.Fatalf("--print-timeout must be omitted when timeout <= 0; got %v", args)
@@ -253,6 +253,35 @@ exit 0
 	}
 	if result.SessionID != "" {
 		t.Fatalf("session id = %q, want empty for auth prompt before dispatch", result.SessionID)
+	}
+}
+
+func TestAntigravityExecuteTreatsEmptyOutputAsFailure(t *testing.T) {
+	t.Parallel()
+
+	fake := filepath.Join(t.TempDir(), "agy")
+	script := `#!/bin/sh
+exit 0
+`
+	if err := os.WriteFile(fake, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	backend := &antigravityBackend{cfg: Config{
+		ExecutablePath: fake,
+		Logger:         quietAntigravityLogger(),
+	}}
+	session, err := backend.Execute(context.Background(), "hello", ExecOptions{Timeout: time.Minute})
+	if err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+
+	result := <-session.Result
+	if result.Status != "failed" {
+		t.Fatalf("result status = %q, want failed", result.Status)
+	}
+	if !strings.Contains(result.Error, "no assistant output") {
+		t.Fatalf("result error = %q, want empty-output diagnostic", result.Error)
 	}
 }
 
