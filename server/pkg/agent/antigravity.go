@@ -146,6 +146,9 @@ func (b *antigravityBackend) Execute(ctx context.Context, prompt string, opts Ex
 		} else if waitErr != nil && finalStatus == "completed" {
 			finalStatus = "failed"
 			finalError = fmt.Sprintf("agy exited with error: %v", waitErr)
+		} else if authErr := antigravityAuthPromptError(output.String()); authErr != "" {
+			finalStatus = "failed"
+			finalError = authErr
 		}
 		if finalError != "" {
 			finalError = withAgentStderr(finalError, "agy", stderrBuf.Tail())
@@ -167,6 +170,17 @@ func (b *antigravityBackend) Execute(ctx context.Context, prompt string, opts Ex
 	}()
 
 	return &Session{Messages: msgCh, Result: resCh}, nil
+}
+
+func antigravityAuthPromptError(output string) string {
+	lower := strings.ToLower(output)
+	if strings.Contains(lower, "authentication required") ||
+		strings.Contains(lower, "waiting for authentication") ||
+		strings.Contains(lower, "authentication timed out") ||
+		strings.Contains(lower, "please sign in") {
+		return "not logged in: agy authentication required; run `agy` in a terminal and complete sign-in before using this Multica runtime"
+	}
+	return ""
 }
 
 // antigravityConversationIDRe matches the glog line printmode.go writes when
